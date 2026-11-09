@@ -690,3 +690,15 @@ shbm1 adm cdrom sudo dip plugdev users
 | 포트 매핑 2회 | 호스트 포트 8080, 8081로 각각 실행 후 `docker ps`, `curl`, 브라우저 접속 | 둘 다 같은 페이지 출력, `0.0.0.0:8080->80`, `0.0.0.0:8081->80` 확인 |
 | 바인드 마운트 | 파일 수정 후 `curl http://localhost:8082`, 브라우저 새로고침 | 재시작 없이 버전 1 → 버전 2, 8080(COPY 이미지)은 버전 1 유지 |
 | 볼륨 영속성 | `docker rm -f vol1` 후 같은 볼륨을 연결한 vol2에서 `cat` | 컨테이너 삭제 후에도 `hello volume` 유지 |
+
+## 7. 재현 방법 (평가자용)
+
+```
+git clone https://github.com/jjin1990/mission1.git
+cd mission1
+docker build -t my-nginx:1.0 .
+docker run -d --name web-8080 -p 8080:80 my-nginx:1.0
+curl http://localhost:8080
+```
+
+> 주의: README의 `/home/shbm1/...` 경로는 내 컴퓨터 기준이다. 다른 컴퓨터에서는 `$(pwd)`나 저장소 기준 상대 경로(`app`, `evidence`)를 사용한다. 8080 포트가 이미 쓰이고 있으면 왼쪽 호스트 포트만 다른 번호로 바꾼다.
