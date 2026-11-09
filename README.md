@@ -702,3 +702,86 @@ curl http://localhost:8080
 ```
 
 > 주의: README의 `/home/shbm1/...` 경로는 내 컴퓨터 기준이다. 다른 컴퓨터에서는 `$(pwd)`나 저장소 기준 상대 경로(`app`, `evidence`)를 사용한다. 8080 포트가 이미 쓰이고 있으면 왼쪽 호스트 포트만 다른 번호로 바꾼다.
+
+## 8. 보너스 과제
+
+### 보너스 1, 3 - Docker Compose 단일 서비스와 운영 명령
+
+`docker run -d --name ... -p ...`처럼 길게 치던 실행 옵션을 `docker-compose.yml` 파일에 적어 두면, 실행 설정이 문서로 남아 누구나 `docker compose up` 한 줄로 같은 방식으로 실행할 수 있다.
+
+```
+services:
+  web:
+    build: .
+    container_name: compose-web
+    ports:
+      - "8090:80"
+```
+
+```
+$ docker compose up -d
+[+] Building 0.6s (9/9) FINISHED                                                 
+ => [internal] load local bake definitions                                  0.0s
+ => => reading from stdin 500B                                              0.0s
+ => [internal] load build definition from Dockerfile                        0.0s
+ => => transferring dockerfile: 172B                                        0.0s
+ => [internal] load metadata for docker.io/library/nginx:alpine             0.1s
+ => [internal] load .dockerignore                                           0.0s
+ => => transferring context: 2B                                             0.0s
+ => [internal] load build context                                           0.0s
+ => => transferring context: 241B                                           0.0s
+ => CACHED [1/2] FROM docker.io/library/nginx:alpine@sha256:713fc2ebfd92e8  0.0s
+ => => resolve docker.io/library/nginx:alpine@sha256:713fc2ebfd92e8217db45  0.0s
+ => [2/2] COPY app/ /usr/share/nginx/html/                                  0.0s
+ => exporting to image                                                      0.2s
+ => => exporting layers                                                     0.1s
+ => => exporting manifest sha256:977174e2cd6f45cb2f03f59ce08389d95522e5b0a  0.0s
+ => => exporting config sha256:4e70765c112690236b6a3db622e413dcd3c9b2177dc  0.0s
+ => => exporting attestation manifest sha256:9125042ef26f883dff500eaab6b99  0.0s
+ => => exporting manifest list sha256:7a7b5b1e8bc512cc83aabca46522ca2c9933  0.0s
+ => => naming to docker.io/library/mission1-web:latest                      0.0s
+ => => unpacking to docker.io/library/mission1-web:latest                   0.0s
+ => resolving provenance for metadata file                                  0.0s
+[+] up 3/3
+ ✔ Image mission1-web       Built                                            0.7s
+ ✔ Network mission1_default Created                                          0.0s
+ ✔ Container compose-web    Started                                          0.4s
+$ docker compose ps
+NAME          IMAGE          COMMAND                  SERVICE   CREATED         STATUS         PORTS
+compose-web   mission1-web   "/docker-entrypoint.…"   web       8 seconds ago   Up 8 seconds   0.0.0.0:8090->80/tcp, [::]:8090->80/tcp
+$ docker compose logs
+compose-web  | /docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+compose-web  | /docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+compose-web  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+compose-web  | 10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
+compose-web  | 10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf
+compose-web  | /docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+compose-web  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+compose-web  | /docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+compose-web  | /docker-entrypoint.sh: Configuration complete; ready for start up
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: using the "epoll" event method
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: nginx/1.31.8
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: built by gcc 15.2.0 (Alpine 15.2.0) 
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: OS: Linux 6.18.54.1-microsoft-standard-WSL2
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: getrlimit(RLIMIT_NOFILE): 1048576:1048576
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker processes
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker process 30
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker process 31
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker process 32
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker process 33
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker process 34
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker process 35
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker process 36
+compose-web  | 2026/11/09 12:39:27 [notice] 1#1: start worker process 37
+$ curl http://localhost:8090
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 2 (바인드 마운트로 수정)</p>
+$ docker compose down
+[+] down 2/2
+ ✔ Container compose-web    Removed                                                                          0.3s
+ ✔ Network mission1_default Removed                                                                          0.3s
+$ docker compose ps
+NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
+```
