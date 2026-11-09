@@ -32,8 +32,8 @@
 - [x] Docker 설치·엔진 점검
 - [x] 이미지·컨테이너 실행, 목록, 로그, 리소스 확인, 중지
 - [x] hello-world 실행, ubuntu 컨테이너 attach/exec 비교
-- [ ] Dockerfile로 커스텀 이미지 빌드
-- [ ] 포트 매핑 접속 확인 (2회)
+- [x] Dockerfile로 커스텀 이미지 빌드
+- [x] 포트 매핑 접속 확인 (2회)
 - [ ] 바인드 마운트: 파일 수정 전/후 확인
 - [ ] 볼륨: 컨테이너 삭제 후 데이터 유지 확인
 - [x] 트러블슈팅 2건 이상 기록
@@ -425,6 +425,94 @@ CONTAINER ID   IMAGE     COMMAND   CREATED         STATUS          PORTS     NAM
 
 > 컨테이너는 안에서 도는 주인공 프로그램이 끝나면 같이 멈춘다. 그래서 실행 중인 컨테이너를 멈추지 않고 들어가 보려면 exec를 쓴다.
 
+### 구역 6 - 커스텀 이미지 + 포트 매핑
+
+1. 웹 페이지 재료 만들기 (`app/index.html`, 직접 작성)
+
+```
+$ mkdir app
+$ touch app/index.html
+$ ls -al app
+total 8
+drwxr-xr-x 2 shbm1 shbm1 4096 Nov  9 19:33 .
+drwxr-xr-x 5 shbm1 shbm1 4096 Nov  9 19:33 ..
+-rw-r--r-- 1 shbm1 shbm1    0 Nov  9 19:33 index.html
+$ ls -al app
+total 12
+drwxr-xr-x 2 shbm1 shbm1 4096 Nov  9 19:33 .
+drwxr-xr-x 5 shbm1 shbm1 4096 Nov  9 19:33 ..
+-rw-r--r-- 1 shbm1 shbm1  139 Nov  9 19:36 index.html
+```
+
+2. 공식 문서로 확인한 사실 (Docker Hub nginx 공식 이미지 페이지)
+
+- 웹 페이지 파일 위치: `/usr/share/nginx/html` ("Hosting some simple static content")
+- nginx가 컨테이너 안에서 기다리는 포트: `80` ("Exposing external port"의 `-p 8080:80`)
+
+3. Dockerfile (베이스: `nginx:alpine`)
+
+```
+FROM nginx:alpine
+LABEL maintainer="jjin1990" description="Codyssey mission1 custom nginx"
+COPY app/ /usr/share/nginx/html/
+EXPOSE 80
+```
+
+| 줄 | 하는 일 | 목적 |
+|---|---|---|
+| `FROM nginx:alpine` | nginx:alpine을 바탕으로 시작 | 웹 서버가 이미 들어 있고, alpine이라 작고 가벼움 |
+| `LABEL` | 만든 사람과 설명을 이미지에 기록 | 누가 무엇을 위해 만든 이미지인지 알 수 있게 |
+| `COPY app/ /usr/share/nginx/html/` | 내 웹 페이지를 nginx 진열장 폴더로 복사 | 기본 화면 대신 직접 쓴 페이지가 나오게 (공식 문서 방법) |
+| `EXPOSE 80` | 사용하는 포트를 문서로 표시 | 공식 문서에서 확인한 nginx 포트를 기록 |
+
+4. 이미지 빌드와 목록 확인
+
+```
+$ docker build -t my-nginx:1.0 .
+[+] Building 1.4s (7/7) FINISHED
+ => [internal] load build definition from Dockerfile
+ => [1/2] FROM docker.io/library/nginx:alpine@sha256:713fc2eb...
+ => [2/2] COPY app/ /usr/share/nginx/html/
+ => exporting to image
+ => => naming to docker.io/library/my-nginx:1.0
+$ docker images
+IMAGE                ID             DISK USAGE   CONTENT SIZE   EXTRA
+hello-world:latest   c567b231f656       25.9kB         9.49kB    U
+my-nginx:1.0         32c5cecd5178       93.7MB         26.4MB
+...
+```
+
+5. 포트 매핑으로 실행하고 접속 확인 (호스트 포트 8080, 8081 두 번)
+
+```
+$ docker run -d --name web-8080 -p 8080:80 my-nginx:1.0
+e162753afa39fd4648a5e1008a0041638a1d4edbf3135927baea6fc672b47071
+$ curl http://localhost:8080
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 1</p>
+$ docker run -d --name web-8081 -p 8081:80 my-nginx:1.0
+2192bf1ca21af7dca1dca10ddb7fda8dac9cad739ee4e75cb2faef4e3da28651
+$ docker ps
+CONTAINER ID   IMAGE          COMMAND                  CREATED              STATUS              PORTS                                     NAMES
+2192bf1ca21a   my-nginx:1.0   "/docker-entrypoint.…"   4 seconds ago        Up 3 seconds        0.0.0.0:8081->80/tcp, [::]:8081->80/tcp   web-8081
+e162753afa39   my-nginx:1.0   "/docker-entrypoint.…"   About a minute ago   Up About a minute   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   web-8080
+$ curl http://localhost:8081
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 1</p>
+```
+
+> 오른쪽 80(컨테이너 포트)은 그대로 두고 왼쪽(호스트 포트)만 바꿔서, 같은 이미지로 컨테이너 2개를 동시에 실행했다.
+
+6. 브라우저 접속 화면
+
+![localhost:8080 접속 화면](evidence/port-8080.png)
+
+![localhost:8081 접속 화면](evidence/port-8081.png)
+
 ## 5. 트러블슈팅
 
 ### 문제 1. Docker를 설치하려는데 WSL과 Ubuntu가 없음
@@ -504,6 +592,7 @@ shbm1 adm cdrom sudo dip plugdev users
 | PowerShell에서 Ubuntu 명령 실행 | 창(프롬프트)을 착각함 | 프롬프트 `PS` 확인 후 `wsl`로 Ubuntu 진입 |
 | user.email에 로그인 이메일을 먼저 넣음 | 보안을 위해 숨김 이메일을 쓰기로 함 | 커밋 전에 noreply 이메일로 다시 설정 후 확인 |
 | `docker attach unbuntu1` → `No such container` | 컨테이너 이름 오타 | `docker ps`로 이름 확인 후 `ubuntu1`로 다시 실행 |
+| Dockerfile 내용을 터미널에 입력 → `FROM: command not found` | Dockerfile 명령은 터미널 명령이 아님 | VSCode에서 Dockerfile 파일 안에 작성 |
 
 ## 6. 검증 방법
 
@@ -519,3 +608,5 @@ shbm1 adm cdrom sudo dip plugdev users
 | 컨테이너 실행·중지 | `docker ps`와 `docker ps -a` 비교 | 실행 중 `Up` → 중지 후 `ps`에선 사라지고 `ps -a`에 `Exited (0)` |
 | Docker 기본 동작 | `docker run hello-world` | `Hello from Docker!` 출력 |
 | attach와 exec 차이 | 각각 들어갔다 `exit` 후 `docker ps`/`docker ps -a` | attach는 `Exited`, exec는 `Up` |
+| 커스텀 이미지 적용 | `curl http://localhost:8080` | 기본 nginx 화면이 아닌 직접 쓴 `Hello from my custom nginx!` 출력 |
+| 포트 매핑 2회 | 호스트 포트 8080, 8081로 각각 실행 후 `docker ps`, `curl`, 브라우저 접속 | 둘 다 같은 페이지 출력, `0.0.0.0:8080->80`, `0.0.0.0:8081->80` 확인 |
