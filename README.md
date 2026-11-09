@@ -219,6 +219,28 @@ drwx------ 2 shbm1 shbm1 4096 Nov  9 17:53 private
 -rw------- 1 shbm1 shbm1    0 Nov  9 17:53 secret.txt
 ```
 
+3. 권한 변경 전/후 비교와 선택 이유
+
+| 대상 | 변경 전 | 변경 후 | 선택 이유 |
+|---|---|---|---|
+| `secret.txt` (파일) | `644` (`rw-r--r--`) | `600` (`rw-------`) | 비밀 파일이라 나만 읽고 쓰게 함. `400`이면 나도 수정할 수 없어서 쓰기는 남김 |
+| `private` (폴더) | `755` (`rwxr-xr-x`) | `700` (`rwx------`) | 개인 공간이라 나만 들어가고 읽고 쓰게 함. 폴더는 `x`가 있어야 들어갈 수 있어서 `600`이 아닌 `700` |
+
+> 숫자 읽는 법: r=4, w=2, x=1을 더한 값을 "나 / 그룹 / 다른 사람" 순서로 쓴다. 필요한 사람에게 필요한 만큼만 주는 최소 권한 원칙을 따랐다.
+
+4. 실험: 폴더에서 x를 빼면 나도 들어갈 수 없는지 확인
+
+```
+$ chmod 600 private
+$ cd private
+bash: cd: private: Permission denied
+$ chmod 700 private
+$ cd private
+$ pwd
+/home/shbm1/codyssey/mission1/practice/private
+$ cd ..
+```
+
 ## 5. 트러블슈팅
 
 ### 문제 1. Docker를 설치하려는데 WSL과 Ubuntu가 없음
@@ -290,3 +312,4 @@ main
 | 결과 없는 명령의 성공 | 바로 뒤에 `ls -al`, `pwd`, `cat`으로 확인 | 폴더·파일 생성, 이동, 내용, 삭제 확인 |
 | 옵션 없는 폴더 삭제 (실험) | 일부러 `rm backup` 실행 | `Is a directory` 오류 → 폴더는 `rm -r` 필요함을 확인 |
 | 빈 폴더와 Git (실험) | 빈 `practice`가 있는 상태에서 `git status` | `working tree clean` → Git은 빈 폴더를 기록하지 않음 |
+| 폴더의 x 권한 (실험) | `chmod 600 private` 후 `cd private` | `Permission denied` → 폴더는 x가 있어야 들어갈 수 있음, 700으로 복구 후 진입 확인 |
