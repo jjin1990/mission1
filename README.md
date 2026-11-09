@@ -928,3 +928,11 @@ origin  git@github.com:jjin1990/mission1.git (push)
 | 개인 키 보호 | 개인 키 권한 `600`(나만 읽기·쓰기), 공개 키는 `644` |
 
 > HTTPS는 로그인 정보나 토큰으로, SSH는 내 컴퓨터의 개인 키로 인증한다. 개인 키는 비밀번호처럼 어디에도 붙여넣지 않는다.
+
+```
+$ git push
+Enter passphrase for key '/home/shbm1/.ssh/id_ed25519':
+...
+To github.com:jjin1990/mission1.git
+   14aa682..0f0d2f2  main -> main
+```
