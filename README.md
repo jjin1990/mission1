@@ -31,7 +31,7 @@
 - [x] 권한: 파일·폴더 권한 변경 전/후 비교
 - [x] Docker 설치·엔진 점검
 - [x] 이미지·컨테이너 실행, 목록, 로그, 리소스 확인, 중지
-- [ ] hello-world 실행, ubuntu 컨테이너 attach/exec 비교
+- [x] hello-world 실행, ubuntu 컨테이너 attach/exec 비교
 - [ ] Dockerfile로 커스텀 이미지 빌드
 - [ ] 포트 매핑 접속 확인 (2회)
 - [ ] 바인드 마운트: 파일 수정 전/후 확인
@@ -343,6 +343,88 @@ CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS   
 51eaf28ac447   nginx:alpine   "/docker-entrypoint.…"   3 minutes ago   Exited (0) 8 seconds ago             web1
 ```
 
+### 구역 5 - 컨테이너 실행 실습
+
+1. hello-world 실행과 상태확인
+
+```
+$ docker run hello-world
+Unable to find image 'hello-world:latest' locally
+...
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+...
+$ docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED          STATUS                      PORTS     NAMES
+07bf3c61fdc5   hello-world    "/hello"                 15 seconds ago   Exited (0) 14 seconds ago             sad_mcclintock
+51eaf28ac447   nginx:alpine   "/docker-entrypoint.…"   17 minutes ago   Exited (0) 14 minutes ago             web1
+```
+
+2. ubuntu 컨테이너 실행 후 내부에서 ls, echo (프롬프트가 root@컨테이너ID#로 바뀜)
+
+```
+$ docker run -it --name ubuntu1 ubuntu bash
+Unable to find image 'ubuntu:latest' locally
+latest: Pulling from library/ubuntu
+f3f25b84a7d7: Pull complete 
+edafa32f5d9e: Pull complete 
+21594acc2d8b: Download complete 
+Digest: sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
+Status: Downloaded newer image for ubuntu:latest
+root@0be886cf7511:/# ls
+bin  boot  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
+root@0be886cf7511:/# echo hello container
+hello container
+root@0be886cf7511:/# exit
+exit
+$ docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED          STATUS                      PORTS     NAMES
+0be886cf7511   ubuntu         "bash"                   56 seconds ago   Exited (0) 4 seconds ago              ubuntu1
+07bf3c61fdc5   hello-world    "/hello"                 2 minutes ago    Exited (0) 2 minutes ago              sad_mcclintock
+51eaf28ac447   nginx:alpine   "/docker-entrypoint.…"   19 minutes ago   Exited (0) 16 minutes ago             web1
+```
+
+3. attach로 들어갔다 exit → 컨테이너가 멈춤 (Exited)
+
+```
+$ docker start ubuntu1
+ubuntu1
+$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED              STATUS         PORTS     NAMES
+0be886cf7511   ubuntu    "bash"    About a minute ago   Up 4 seconds             ubuntu1
+$ docker attach ubuntu1
+root@0be886cf7511:/# exit
+exit
+$ docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED          STATUS                      PORTS     NAMES
+0be886cf7511   ubuntu         "bash"                   3 minutes ago    Exited (0) 4 seconds ago              ubuntu1
+07bf3c61fdc5   hello-world    "/hello"                 4 minutes ago    Exited (0) 4 minutes ago              sad_mcclintock
+51eaf28ac447   nginx:alpine   "/docker-entrypoint.…"   21 minutes ago   Exited (0) 18 minutes ago             web1
+```
+
+4. exec로 들어갔다 exit → 컨테이너는 계속 실행 (Up)
+
+```
+$ docker start ubuntu1
+ubuntu1
+$ docker exec -it ubuntu1 bash
+root@0be886cf7511:/# exit
+exit
+$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED         STATUS          PORTS     NAMES
+0be886cf7511   ubuntu    "bash"    5 minutes ago   Up 25 seconds             ubuntu1
+```
+
+5. attach와 exec의 차이
+
+| | attach | exec |
+|---|---|---|
+| 들어가는 곳 | 원래 실행 중인 주인공 프로그램(bash)에 연결 | 컨테이너 안에 새 bash를 하나 더 열어서 들어감 |
+| exit하면 끝나는 것 | 주인공 bash | 새로 연 bash만 |
+| 나온 뒤 컨테이너 | Exited (멈춤) | Up (계속 실행) |
+
+> 컨테이너는 안에서 도는 주인공 프로그램이 끝나면 같이 멈춘다. 그래서 실행 중인 컨테이너를 멈추지 않고 들어가 보려면 exec를 쓴다.
+
 ## 5. 트러블슈팅
 
 ### 문제 1. Docker를 설치하려는데 WSL과 Ubuntu가 없음
@@ -421,6 +503,7 @@ shbm1 adm cdrom sudo dip plugdev users
 | README 편집 중 Enter가 안 됨 | 한글 입력 조합이 꼬인 것으로 추정 | `Ctrl+Shift+P` → Developer: Reload Window |
 | PowerShell에서 Ubuntu 명령 실행 | 창(프롬프트)을 착각함 | 프롬프트 `PS` 확인 후 `wsl`로 Ubuntu 진입 |
 | user.email에 로그인 이메일을 먼저 넣음 | 보안을 위해 숨김 이메일을 쓰기로 함 | 커밋 전에 noreply 이메일로 다시 설정 후 확인 |
+| `docker attach unbuntu1` → `No such container` | 컨테이너 이름 오타 | `docker ps`로 이름 확인 후 `ubuntu1`로 다시 실행 |
 
 ## 6. 검증 방법
 
@@ -434,3 +517,5 @@ shbm1 adm cdrom sudo dip plugdev users
 | 폴더의 x 권한 (실험) | `chmod 600 private` 후 `cd private` | `Permission denied` → 폴더는 x가 있어야 들어갈 수 있음, 700으로 복구 후 진입 확인 |
 | Docker 엔진 동작 | `docker info`의 Server 부분 | Containers, Images, Server Version이 출력됨 |
 | 컨테이너 실행·중지 | `docker ps`와 `docker ps -a` 비교 | 실행 중 `Up` → 중지 후 `ps`에선 사라지고 `ps -a`에 `Exited (0)` |
+| Docker 기본 동작 | `docker run hello-world` | `Hello from Docker!` 출력 |
+| attach와 exec 차이 | 각각 들어갔다 `exit` 후 `docker ps`/`docker ps -a` | attach는 `Exited`, exec는 `Up` |
