@@ -34,8 +34,8 @@
 - [x] hello-world 실행, ubuntu 컨테이너 attach/exec 비교
 - [x] Dockerfile로 커스텀 이미지 빌드
 - [x] 포트 매핑 접속 확인 (2회)
-- [ ] 바인드 마운트: 파일 수정 전/후 확인
-- [ ] 볼륨: 컨테이너 삭제 후 데이터 유지 확인
+- [x] 바인드 마운트: 파일 수정 전/후 확인
+- [x] 볼륨: 컨테이너 삭제 후 데이터 유지 확인
 - [x] 트러블슈팅 2건 이상 기록
 
 ## 4. 수행 기록
@@ -513,6 +513,84 @@ $ curl http://localhost:8081
 
 ![localhost:8081 접속 화면](evidence/port-8081.png)
 
+### 구역 7 - 바인드 마운트 + 볼륨
+
+1. 바인드 마운트로 실행 (내 `app` 폴더를 컨테이너에 직접 연결, 원래 `nginx:alpine` 이미지 사용) - 수정 전
+
+```
+$ docker run -d --name web-bind -p 8082:80 -v $(pwd)/app:/usr/share/nginx/html nginx:alpine
+4b0dba01f4ecb16706d1e647941d88d5dbf2432fe149069cda9daf7e45ecb177
+$ curl http://localhost:8082
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 1</p>
+```
+
+![바인드 마운트 수정 전 (localhost:8082)](evidence/bind-before.png)
+
+2. 내 컴퓨터에서 `app/index.html`의 "버전 1"을 "버전 2 (바인드 마운트로 수정)"로 고치고 저장 → 재시작 없이 확인
+
+```
+$ curl http://localhost:8082
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 2 (바인드 마운트로 수정)</p>
+$ curl http://localhost:8080
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 1</p>
+```
+
+![바인드 마운트 수정 후 (localhost:8082)](evidence/bind-after.png)
+
+> 8082(바인드 마운트)는 파일을 고치자마자 버전 2로 바뀌었고, 8080(구역 6에서 COPY로 이미지에 넣은 것)은 버전 1 그대로다. 바인드는 내 폴더를 직접 연결하고, COPY는 빌드할 때 복사본을 이미지에 넣기 때문이다.
+
+3. 볼륨 만들고, 연결한 컨테이너에서 데이터 쓰기
+
+```
+$ docker volume create mydata
+mydata
+$ docker volume ls
+DRIVER    VOLUME NAME
+local     mydata
+$ docker run -d --name vol1 -v mydata:/data ubuntu sleep infinity
+dd5e159b6dd3be15e70a000c450e171caece6e3e3359e3957737efc9a55ecb70
+$ docker exec vol1 bash -c "echo hello volume > /data/note.txt"
+$ docker exec vol1 cat /data/note.txt
+hello volume
+```
+
+4. 컨테이너를 삭제하고, 같은 볼륨을 연결한 새 컨테이너에서 데이터 확인
+
+```
+$ docker rm -f vol1
+vol1
+$ docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED          STATUS           PORTS                                     NAMES
+4b0dba01f4ec   nginx:alpine   "/docker-entrypoint.…"   56 minutes ago   Up 56 minutes           0.0.0.0:8082->80/tcp, [::]:8082->80/tcp   web-bind
+2192bf1ca21a   my-nginx:1.0   "/docker-entrypoint.…"   2 hours ago      Up 2 hours           0.0.0.0:8081->80/tcp, [::]:8081->80/tcp   web-8081
+e162753afa39   my-nginx:1.0   "/docker-entrypoint.…"   2 hours ago      Up 2 hours           0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   web-8080
+0be886cf7511   ubuntu         "bash"                   2 hours ago      Exited (137) 2 hours ago                                             ubuntu1
+07bf3c61fdc5   hello-world    "/hello"                 2 hours ago      Exited (0) 2 hours ago                                               sad_mcclintock
+51eaf28ac447   nginx:alpine   "/docker-entrypoint.…"   2 hours ago      Exited (0) 2 hours ago                                               web1
+$ docker run -d --name vol2 -v mydata:/data ubuntu sleep infinity
+99e161d0780de6f387722df191f1178d786f30a83cf6bd455ee3715d71d087fa
+$ docker exec vol2 cat /data/note.txt
+hello volume
+```
+
+5. 바인드 마운트와 볼륨 비교
+
+| | 바인드 마운트 | 볼륨 |
+|---|---|---|
+| 저장 위치 | 내 컴퓨터 폴더 (`app`) | Docker가 관리하는 보관함 (`mydata`) |
+| 연결 방법 | `-v $(pwd)/app:/usr/share/nginx/html` | `-v mydata:/data` |
+| 확인한 것 | 파일 수정 → 재시작 없이 바로 반영 | 컨테이너 삭제 → 새 컨테이너에서도 데이터 유지 |
+| 쓰임 | 개발 중 코드를 바로 반영해 볼 때 | 컨테이너가 바뀌어도 지켜야 할 데이터 |
+
 ## 5. 트러블슈팅
 
 ### 문제 1. Docker를 설치하려는데 WSL과 Ubuntu가 없음
@@ -610,3 +688,5 @@ shbm1 adm cdrom sudo dip plugdev users
 | attach와 exec 차이 | 각각 들어갔다 `exit` 후 `docker ps`/`docker ps -a` | attach는 `Exited`, exec는 `Up` |
 | 커스텀 이미지 적용 | `curl http://localhost:8080` | 기본 nginx 화면이 아닌 직접 쓴 `Hello from my custom nginx!` 출력 |
 | 포트 매핑 2회 | 호스트 포트 8080, 8081로 각각 실행 후 `docker ps`, `curl`, 브라우저 접속 | 둘 다 같은 페이지 출력, `0.0.0.0:8080->80`, `0.0.0.0:8081->80` 확인 |
+| 바인드 마운트 | 파일 수정 후 `curl http://localhost:8082`, 브라우저 새로고침 | 재시작 없이 버전 1 → 버전 2, 8080(COPY 이미지)은 버전 1 유지 |
+| 볼륨 영속성 | `docker rm -f vol1` 후 같은 볼륨을 연결한 vol2에서 `cat` | 컨테이너 삭제 후에도 `hello volume` 유지 |
