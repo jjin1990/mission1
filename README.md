@@ -892,3 +892,39 @@ $ docker compose exec helper wget -qO- http://web
 ```
 
 > 같은 네트워크 안에서는 호스트 포트(8096)가 아니라 컨테이너 포트(80)로 바로 접속한다.
+
+### 보너스 5 - GitHub SSH 키 설정
+
+HTTPS(VSCode 로그인) 대신 SSH 키로 GitHub에 인증하도록 바꿨다. 개인 키(`id_ed25519`)는 내 컴퓨터에만 두고, 공개 키(`id_ed25519.pub`)만 GitHub Settings → SSH and GPG keys에 등록했다. 개인 키에는 암호(passphrase)를 걸었다.
+
+```
+$ ssh-keygen -t ed25519 -C "302385656+jjin1990@users.noreply.github.com"
+Generating public/private ed25519 key pair.
+...
+Your identification has been saved in /home/shbm1/.ssh/id_ed25519
+Your public key has been saved in /home/shbm1/.ssh/id_ed25519.pub
+The key fingerprint is:
+SHA256:qQJ4DQJKJsoxiIYpQglqS8tDBKAD/UYy4WSS9bWcOv8 302385656+jjin1990@users.noreply.github.com
+$ ls -l ~/.ssh
+total 8
+-rw------- 1 shbm1 shbm1 484 Nov  9 22:05 id_ed25519
+-rw-r--r-- 1 shbm1 shbm1 125 Nov  9 22:05 id_ed25519.pub
+$ ssh -T git@github.com
+The authenticity of host 'github.com (20.200.245.247)' can't be established.
+ED25519 key fingerprint is: SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'github.com' (ED25519) to the list of known hosts.
+Hi jjin1990! You've successfully authenticated, but GitHub does not provide shell access.
+$ git remote set-url origin git@github.com:jjin1990/mission1.git
+$ git remote -v
+origin  git@github.com:jjin1990/mission1.git (fetch)
+origin  git@github.com:jjin1990/mission1.git (push)
+```
+
+| 확인한 것 | 방법 |
+|---|---|
+| 등록한 키가 맞는지 | 터미널 지문과 GitHub에 표시된 지문(`SHA256:qQJ4...`)이 같음 |
+| 진짜 GitHub인지 | 접속 시 나온 지문을 GitHub 공식 문서의 ED25519 지문과 비교 후 `yes` |
+| 개인 키 보호 | 개인 키 권한 `600`(나만 읽기·쓰기), 공개 키는 `644` |
+
+> HTTPS는 로그인 정보나 토큰으로, SSH는 내 컴퓨터의 개인 키로 인증한다. 개인 키는 비밀번호처럼 어디에도 붙여넣지 않는다.
