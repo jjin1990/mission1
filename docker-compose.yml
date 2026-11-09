@@ -6,3 +6,8 @@ services:
       - "${WEB_PORT}:80"
     environment:
       - APP_MODE=${APP_MODE}
+  helper:
+    image: alpine
+    container_name: compose-helper
+    command: sleep infinity
+    

@@ -671,6 +671,7 @@ shbm1 adm cdrom sudo dip plugdev users
 | user.email에 로그인 이메일을 먼저 넣음 | 보안을 위해 숨김 이메일을 쓰기로 함 | 커밋 전에 noreply 이메일로 다시 설정 후 확인 |
 | `docker attach unbuntu1` → `No such container` | 컨테이너 이름 오타 | `docker ps`로 이름 확인 후 `ubuntu1`로 다시 실행 |
 | Dockerfile 내용을 터미널에 입력 → `FROM: command not found` | Dockerfile 명령은 터미널 명령이 아님 | VSCode에서 Dockerfile 파일 안에 작성 |
+| `docker compose exec helper ...` → `service "helper" is not running` | `docker-compose.yml`을 저장하기 전에 `up`해서 helper가 없는 파일을 읽음 | 저장(Ctrl+S) 후 다시 `docker compose up -d` |
 
 ## 6. 검증 방법
 
@@ -846,3 +847,48 @@ $ curl http://localhost:8096
 
 > `.env`에는 보통 비밀번호 같은 비밀 값을 넣어 GitHub에 올리지 않는다. 이번 `.env`에는 비밀 값이 없고 재현에 필요해서 함께 올렸다.
 
+### 보너스 2 - 멀티 컨테이너와 컨테이너 간 통신
+
+`docker-compose.yml`에 보조 서비스 `helper`(alpine)를 추가해 `web`과 함께 실행했다. Compose가 만든 같은 네트워크(`mission1_default`) 안에서는 IP 주소 대신 서비스 이름(`web`)으로 서로 찾을 수 있다 (서비스 디스커버리).
+
+```
+services:
+  web:
+    build: .
+    container_name: compose-web
+    ports:
+      - "${WEB_PORT}:80"
+    environment:
+      - APP_MODE=${APP_MODE}
+  helper:
+    image: alpine
+    container_name: compose-helper
+    command: sleep infinity
+```
+
+```
+$ docker compose up -d
+[+] up 6/6
+ ✔ Image alpine            Pulled
+ ✔ Container compose-web    Running
+ ✔ Container compose-helper Started
+$ docker compose ps
+NAME             IMAGE          COMMAND                  SERVICE   CREATED          STATUS          PORTS
+compose-helper   alpine         "sleep infinity"         helper    2 seconds ago    Up 1 second
+compose-web      mission1-web   "/docker-entrypoint.…"   web       7 minutes ago    Up 7 minutes    0.0.0.0:8096->80/tcp, [::]:8096->80/tcp
+$ docker compose exec helper ping -c 2 web
+PING web (172.18.0.2): 56 data bytes
+64 bytes from 172.18.0.2: seq=0 ttl=64 time=0.347 ms
+64 bytes from 172.18.0.2: seq=1 ttl=64 time=0.096 ms
+
+--- web ping statistics ---
+2 packets transmitted, 2 packets received, 0% packet loss
+round-trip min/avg/max = 0.096/0.221/0.347 ms
+$ docker compose exec helper wget -qO- http://web
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 2 (바인드 마운트로 수정)</p>
+```
+
+> 같은 네트워크 안에서는 호스트 포트(8096)가 아니라 컨테이너 포트(80)로 바로 접속한다.
