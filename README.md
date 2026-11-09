@@ -29,8 +29,8 @@
 - [x] VSCode에서 WSL(Ubuntu)로 작업 폴더 열기, GitHub 로그인
 - [x] 터미널: 위치 확인, 폴더·파일 만들기, 복사, 이동, 이름 변경, 삭제
 - [x] 권한: 파일·폴더 권한 변경 전/후 비교
-- [ ] Docker 설치·엔진 점검
-- [ ] 이미지·컨테이너 실행, 목록, 로그, 리소스 확인, 중지
+- [x] Docker 설치·엔진 점검
+- [x] 이미지·컨테이너 실행, 목록, 로그, 리소스 확인, 중지
 - [ ] hello-world 실행, ubuntu 컨테이너 attach/exec 비교
 - [ ] Dockerfile로 커스텀 이미지 빌드
 - [ ] 포트 매핑 접속 확인 (2회)
@@ -241,6 +241,108 @@ $ pwd
 $ cd ..
 ```
 
+### 구역 4 - Docker 점검 + 기본운영
+
+1. Docker 버전과 엔진 동작 확인
+
+```
+$ docker --version
+Docker version 29.9.2, build a82e528
+$ docker info
+Client:
+ Version:    29.9.2
+ Context:    default
+...
+Server:
+ Containers: 0
+  Running: 0
+  Paused: 0
+  Stopped: 0
+ Images: 1
+ Server Version: 29.9.2
+...
+ Operating System: Docker Desktop
+ OSType: linux
+ Architecture: x86_64
+ ```
+
+2. 이미지 다운로드와 목록 확인
+
+```
+$ docker pull nginx:alpine
+alpine: Pulling from library/nginx
+da90db506dd5: Pull complete 
+e011f124249b: Pull complete 
+c7dfd64eeb02: Pull complete 
+881fc932939e: Pull complete 
+b9c6ee6a30f8: Pull complete 
+69d81d552257: Pull complete 
+1abafee971b9: Pull complete 
+a746bd1dc828: Pull complete 
+8801fee91458: Download complete 
+4c900eca9c64: Download complete 
+Digest: sha256:713fc2ebfd92e8217db451477182ee91944b123d2b1ee9fd5a8c6e91ca6c3a11
+Status: Downloaded newer image for nginx:alpine
+docker.io/library/nginx:alpine
+$ docker images
+IMAGE          ID             DISK USAGE   CONTENT SIZE   EXTRA
+nginx:alpine   713fc2ebfd92       94.5MB         27.3MB        
+```
+
+3. 컨테이너 백그라운드 실행(이름 web1)과 실행 중 목록 확인
+
+```
+$ docker run -d --name web1 nginx:alpine
+51eaf28ac447c2f5970505b94acd15d383ff4f3875971b23f51e67b06419760b
+$ docker ps
+CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS         PORTS     NAMES
+51eaf28ac447   nginx:alpine   "/docker-entrypoint.…"   4 seconds ago   Up 4 seconds   80/tcp    web1
+```
+
+4. 로그와 리소스(CPU·메모리) 사용량 확인
+
+```
+$ docker logs web1
+/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration
+/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh
+10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf
+10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf
+/docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh
+/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh
+/docker-entrypoint.sh: Configuration complete; ready for start up
+2026/11/09 09:51:46 [notice] 1#1: using the "epoll" event method
+2026/11/09 09:51:46 [notice] 1#1: nginx/1.31.8
+2026/11/09 09:51:46 [notice] 1#1: built by gcc 15.2.0 (Alpine 15.2.0) 
+2026/11/09 09:51:46 [notice] 1#1: OS: Linux 6.18.54.1-microsoft-standard-WSL2
+2026/11/09 09:51:46 [notice] 1#1: getrlimit(RLIMIT_NOFILE): 1048576:1048576
+2026/11/09 09:51:46 [notice] 1#1: start worker processes
+2026/11/09 09:51:46 [notice] 1#1: start worker process 30
+2026/11/09 09:51:46 [notice] 1#1: start worker process 31
+2026/11/09 09:51:46 [notice] 1#1: start worker process 32
+2026/11/09 09:51:46 [notice] 1#1: start worker process 33
+2026/11/09 09:51:46 [notice] 1#1: start worker process 34
+2026/11/09 09:51:46 [notice] 1#1: start worker process 35
+2026/11/09 09:51:46 [notice] 1#1: start worker process 36
+2026/11/09 09:51:46 [notice] 1#1: start worker process 37
+$ docker stats --no-stream
+CONTAINER ID   NAME      CPU %     MEM USAGE / LIMIT    MEM %     NET I/O        BLOCK I/O     PIDS
+51eaf28ac447   web1      0.00%     7.68MiB / 7.631GiB   0.10%     1.7kB / 126B   0B / 12.3kB   9
+```
+
+5. 컨테이너 중지와 멈춘 컨테이너까지 전체 목록 확인
+
+```
+$ docker stop web1
+web1
+$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+$ docker ps -a
+CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS                     PORTS     NAMES
+51eaf28ac447   nginx:alpine   "/docker-entrypoint.…"   3 minutes ago   Exited (0) 8 seconds ago             web1
+```
+
 ## 5. 트러블슈팅
 
 ### 문제 1. Docker를 설치하려는데 WSL과 Ubuntu가 없음
@@ -292,6 +394,23 @@ $ git config --global init.defaultBranch
 main
 ```
 
+### 문제 5. Ubuntu에서 docker info의 Server 연결 실패 (2단계)
+
+- 상황 ①: `docker info`에서 Client는 나왔지만 Server에 `The command 'docker' could not be found in this WSL 2 distro`가 나왔다.
+- 원인 ①: Docker Desktop의 WSL integration이 꺼져 있어 Ubuntu와 연결되지 않았다.
+- 해결 ①: Docker Desktop → Settings → WSL integration에서 기본 배포판 연동과 Ubuntu를 켜고 Apply & Restart Engine.
+- 상황 ②: 다시 실행하자 `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`가 나왔다.
+- 원인 ②: `ls -l /var/run/docker.sock` 결과 `srw-rw---- root docker`로 docker 그룹만 접근할 수 있는데, `groups`에 docker가 없었다.
+- 해결 ②: `sudo usermod -aG docker shbm1`로 docker 그룹에 추가하고(Ubuntu 비밀번호를 잊어 PowerShell에서 `wsl -u root` → `passwd shbm1`로 재설정), PowerShell에서 `wsl --shutdown` 후 VSCode를 다시 연결했다.
+- 배운 점: 오류 문구가 바뀌면 한 단계 나아간 것이다. `Permission denied`는 권한 문제이므로 대상의 권한과 내 그룹을 비교한다. docker 그룹은 root에 가까운 권한이지만, 개인 개발 환경이라 공식 문서 방법을 따랐다.
+
+```
+$ ls -l /var/run/docker.sock
+srw-rw---- 1 root docker 0 Nov  9 18:35 /var/run/docker.sock
+$ groups
+shbm1 adm cdrom sudo dip plugdev users
+```
+
 ### 그 밖의 문제
 
 | 문제 | 원인 | 해결 |
@@ -313,3 +432,5 @@ main
 | 옵션 없는 폴더 삭제 (실험) | 일부러 `rm backup` 실행 | `Is a directory` 오류 → 폴더는 `rm -r` 필요함을 확인 |
 | 빈 폴더와 Git (실험) | 빈 `practice`가 있는 상태에서 `git status` | `working tree clean` → Git은 빈 폴더를 기록하지 않음 |
 | 폴더의 x 권한 (실험) | `chmod 600 private` 후 `cd private` | `Permission denied` → 폴더는 x가 있어야 들어갈 수 있음, 700으로 복구 후 진입 확인 |
+| Docker 엔진 동작 | `docker info`의 Server 부분 | Containers, Images, Server Version이 출력됨 |
+| 컨테이너 실행·중지 | `docker ps`와 `docker ps -a` 비교 | 실행 중 `Up` → 중지 후 `ps`에선 사라지고 `ps -a`에 `Exited (0)` |
