@@ -36,7 +36,7 @@
 - [ ] 포트 매핑 접속 확인 (2회)
 - [ ] 바인드 마운트: 파일 수정 전/후 확인
 - [ ] 볼륨: 컨테이너 삭제 후 데이터 유지 확인
-- [ ] 트러블슈팅 2건 이상 기록
+- [x] 트러블슈팅 2건 이상 기록
 
 ## 4. 수행 기록
 
@@ -192,6 +192,31 @@ $ ls -al
 total 8
 drwxr-xr-x 2 shbm1 shbm1 4096 Nov  8 20:49 .
 drwxr-xr-x 4 shbm1 shbm1 4096 Nov  8 20:22 ..
+```
+
+### 구역 3 - 권한 실습
+
+1. 실습 파일·폴더 만들고 바꾸기 전 권한 확인
+
+```
+$ cd practice
+$ touch secret.txt
+$ mkdir private
+$ ls -l
+total 4
+drwxr-xr-x 2 shbm1 shbm1 4096 Nov  9 17:53 private
+-rw-r--r-- 1 shbm1 shbm1    0 Nov  9 17:53 secret.txt
+```
+
+2. 권한 바꾸고 바꾼 뒤 확인
+
+```
+$ chmod 600 secret.txt
+$ chmod 700 private
+$ ls -l
+total 4
+drwx------ 2 shbm1 shbm1 4096 Nov  9 17:53 private
+-rw------- 1 shbm1 shbm1    0 Nov  9 17:53 secret.txt
 ```
 
 ## 5. 트러블슈팅
