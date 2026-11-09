@@ -785,3 +785,64 @@ $ docker compose down
 $ docker compose ps
 NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
 ```
+
+### 보너스 4 - 환경 변수로 포트와 모드 바꾸기
+
+포트와 모드 값을 `docker-compose.yml`에 직접 쓰지 않고 `.env` 파일로 분리했다. `docker-compose.yml`은 그대로 두고 `.env`만 바꿔서 실행 결과를 바꿀 수 있다 (설정과 코드의 분리).
+
+```
+services:
+  web:
+    build: .
+    container_name: compose-web
+    ports:
+      - "${WEB_PORT}:80"
+    environment:
+      - APP_MODE=${APP_MODE}
+```
+
+1. `.env`가 8095 / development일 때
+
+```
+$ cat .env
+WEB_PORT=8095
+APP_MODE=development
+$ docker compose up -d
+[+] up 2/2
+ ✔ Network mission1_default Created
+ ✔ Container compose-web    Started
+$ docker compose ps
+NAME          IMAGE          COMMAND                  SERVICE   CREATED         STATUS         PORTS
+compose-web   mission1-web   "/docker-entrypoint.…"   web       4 seconds ago   Up 3 seconds   0.0.0.0:8095->80/tcp, [::]:8095->80/tcp
+$ docker compose exec web printenv APP_MODE
+development
+$ curl http://localhost:8095
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 2 (바인드 마운트로 수정)</p>
+```
+
+2. `.env`만 8096 / production으로 바꾼 뒤
+
+```
+$ cat .env
+WEB_PORT=8096
+APP_MODE=production
+$ docker compose up -d
+[+] up 1/1
+ ✔ Container compose-web Started
+$ docker compose ps
+NAME          IMAGE          COMMAND                  SERVICE   CREATED         STATUS         PORTS
+compose-web   mission1-web   "/docker-entrypoint.…"   web       4 seconds ago   Up 3 seconds   0.0.0.0:8096->80/tcp, [::]:8096->80/tcp
+$ docker compose exec web printenv APP_MODE
+production
+$ curl http://localhost:8096
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 2 (바인드 마운트로 수정)</p>
+```
+
+> `.env`에는 보통 비밀번호 같은 비밀 값을 넣어 GitHub에 올리지 않는다. 이번 `.env`에는 비밀 값이 없고 재현에 필요해서 함께 올렸다.
+
