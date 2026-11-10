@@ -871,6 +871,7 @@ $ curl http://localhost:8080
 | 3 | 컨테이너 안 서버가 그 포트를 듣나 | `docker exec 이름 netstat -tln` |
 | 4 | 서버에 오류가 없나 | `docker logs 이름` |
 | 5 | 다른 프로그램이 호스트 포트를 쓰나 | PowerShell `netstat -ano \| findstr :포트` → `tasklist /FI "PID eq 번호"` |
+| 6 | 방화벽·보안 프로그램이 막고 있나 | Windows 방화벽 허용 확인. WSL + Docker Desktop은 `localhost`로 자동 연결되므로, 다른 컴퓨터에서 접속할 때만 방화벽 허용이 필요 |
 
 ### 그 밖의 문제
 
@@ -907,7 +908,28 @@ $ curl http://localhost:8080
 | 바인드 마운트 | 파일 수정 후 `curl http://localhost:8082`, 브라우저 새로고침 | 재시작 없이 버전 1 → 버전 2, 8080(COPY 이미지)은 버전 1 유지 |
 | 볼륨 영속성 | `docker rm -f vol1` 후 같은 볼륨을 연결한 vol2에서 `cat` | 컨테이너 삭제 후에도 `hello volume` 유지 |
 
+### 증거 파일 목록 (`evidence/`)
+
+| 파일 | 무엇을 증명하나 | README 위치 |
+|---|---|---|
+| `terminal-ops.png` | 파일 만들기·이름 변경·삭제와 목록 확인 | 구역 2 |
+| `hello-world.png` | `Hello from Docker!` 출력 | 구역 5 |
+| `port-8080.png`, `port-8081.png` | 같은 이미지로 호스트 포트 2개 접속 | 구역 6 |
+| `network-namespace.png` | 컨테이너마다 다른 IP, 둘 다 80 LISTEN | 구역 6 |
+| `bind-before.png`, `bind-after.png` | 파일 수정 전/후 바인드 마운트 반영 | 구역 7 |
+| `volume-sticky.png` | 볼륨 실제 위치, `/tmp` sticky bit | 구역 7, 구역 3 |
+| `port-conflict.png` | 포트 충돌 재현과 사용 중인 컨테이너 찾기 | 트러블슈팅 문제 6 |
+| `port-check-windows.png` | PowerShell로 포트 사용 프로그램(PID) 확인 | 트러블슈팅 문제 6 |
+| `port-release.png` | 포트 해제 후 재실행 성공 | 트러블슈팅 문제 6 |
+| `github-repo.png` | GitHub 저장소에 push 반영 | 구역 1 |
+| `github-ssh-keys.png` | SSH 공개 키 등록과 사용 기록 | 보너스 5 |
+
 ## 7. 재현 방법 (평가자용)
+
+재현 전 확인:
+- [ ] Docker Desktop 실행 (Engine running), Windows라면 Settings → WSL integration에서 Ubuntu 켜기
+- [ ] `docker info`의 Server 정보가 나오는지 확인
+- [ ] 8080 포트가 비어 있는지 확인 (`docker ps --filter "publish=8080"`가 비어 있어야 함)
 
 ```
 git clone https://github.com/jjin1990/mission1.git
