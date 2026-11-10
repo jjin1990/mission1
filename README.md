@@ -13,6 +13,27 @@
 - Dockerfile로 나만의 웹 서버 이미지를 만들고, 포트 매핑으로 브라우저에서 접속한다.
 - 바인드 마운트로 파일 수정이 바로 반영되는지(변경 반영), 볼륨으로 컨테이너를 지워도 데이터가 남는지(데이터 영속성) 확인한다.
 
+### 프로젝트 구조
+
+```
+mission1/
+├── README.md            # 수행 기록 전체 (실행 방법, 결과, 트러블슈팅)
+├── Dockerfile           # 커스텀 nginx 이미지 설계서
+├── docker-compose.yml   # Compose 실행 설정 (보너스)
+├── .env                 # Compose에 넣는 포트·모드 값 (보너스 4)
+├── app/
+│   └── index.html       # 직접 작성한 웹 페이지 (이미지에 COPY, 바인드 마운트 대상)
+└── evidence/            # 브라우저·터미널·GitHub 화면 캡처
+```
+
+| 설계 기준 | 이유 |
+|---|---|
+| 작업 폴더를 Ubuntu 홈(`~/codyssey/mission1`)에 둠 | Windows 쪽(`/mnt/c`)에서는 리눅스 권한이 제대로 보이지 않아서 |
+| 웹 페이지는 `app/`에 따로 모음 | Dockerfile의 `COPY app/`과 바인드 마운트 `-v $(pwd)/app:...`가 같은 폴더를 가리키게 하려고 |
+| `Dockerfile`, `docker-compose.yml`은 저장소 맨 위 | `docker build .`와 `docker compose up`을 저장소 맨 위에서 바로 실행할 수 있게 |
+| 캡처는 `evidence/`에 모음 | README에서 상대 경로(`evidence/파일.png`)로 연결하고, 증거를 한곳에서 찾게 하려고 |
+| 터미널 실습용 `practice/`는 올리지 않음 | 실습 후 정리한 연습 폴더라서. 실습 과정은 README 코드블록으로 남김 |
+
 ## 2. 실행 환경
 
 - OS: Windows 11 Home 25H2 (빌드 26200)
@@ -513,6 +534,33 @@ $ curl http://localhost:8081
 
 ![localhost:8081 접속 화면](evidence/port-8081.png)
 
+7. 네트워크 네임스페이스: 두 컨테이너가 둘 다 80번을 써도 충돌하지 않는 이유
+
+컨테이너는 실행될 때마다 자기만의 네트워크 공간(네트워크 네임스페이스)을 따로 받는다. 그래서 컨테이너마다 IP 주소와 포트 번호 공간이 따로 있다. web-8080과 web-8081은 둘 다 컨테이너 안에서 80번을 쓰지만, 서로 다른 공간이라 부딪히지 않는다. 서점에 『소년이 온다』가 여러 권 쌓여 있어도 제목만 같을 뿐 한 권 한 권은 각각 다른 책인 것과 같다.
+
+반대로 호스트(내 컴퓨터)의 포트는 하나뿐이라, 바깥에서 들어올 문 번호(8080, 8081)를 다르게 정하고 `-p 호스트포트:컨테이너포트`로 각 컨테이너의 80번에 연결한다. 그래서 호스트 포트와 컨테이너 포트가 분리되어 있다.
+
+```
+$ docker exec web-8080 hostname -i
+172.17.0.2
+$ docker exec web-8081 hostname -i
+172.17.0.3
+$ docker exec web-8080 netstat -tln
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN
+tcp        0      0 :::80                   :::*                    LISTEN
+$ docker exec web-8081 netstat -tln
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN
+tcp        0      0 :::80                   :::*                    LISTEN
+```
+
+![네트워크 네임스페이스 확인](evidence/network-namespace.png)
+
+*▲ 두 컨테이너의 IP는 172.17.0.2 / 172.17.0.3으로 다르고, 둘 다 컨테이너 안에서 80번을 LISTEN 한다. 같은 번호지만 각자 자기 네트워크 공간의 80번이라 충돌하지 않는다.*
+
 ### 구역 7 - 바인드 마운트 + 볼륨
 
 1. 바인드 마운트로 실행 (내 `app` 폴더를 컨테이너에 직접 연결, 원래 `nginx:alpine` 이미지 사용) - 수정 전
@@ -658,6 +706,75 @@ srw-rw---- 1 root docker 0 Nov  9 18:35 /var/run/docker.sock
 $ groups
 shbm1 adm cdrom sudo dip plugdev users
 ```
+
+### 문제 6. 포트 충돌: 이미 쓰는 호스트 포트로 컨테이너 실행 (일부러 재현)
+
+- 상황: web-8080이 8080을 쓰는 중에 `docker run -d --name web-conflict -p 8080:80 my-nginx:1.0`을 실행하자 `Bind for 0.0.0.0:8080 failed: port is already allocated`가 나왔다.
+- 원인: 컨테이너 포트(80)는 컨테이너마다 따로 있지만, 호스트 포트(8080)는 내 컴퓨터에 하나뿐이라 두 컨테이너가 같은 호스트 포트를 쓸 수 없다.
+- 진단 ①: `docker ps --filter "publish=8080"`으로 8080을 쓰는 컨테이너가 web-8080임을 확인했다.
+- 진단 ②: PowerShell에서 `netstat -ano | findstr :8080`으로 8080을 LISTEN 하는 PID(20320)를 찾고, `tasklist /FI "PID eq 20320"`으로 그 프로그램이 `com.docker.backend.exe`(Docker Desktop)임을 확인했다. Docker 밖의 다른 프로그램이 8080을 쓰는 경우도 이 방법으로 찾는다.
+- 해결: Docker 전체를 끄지 않고 그 포트를 쓰는 컨테이너만 `docker stop web-8080`으로 멈춰 포트를 비웠다. 실패하며 만들어진 web-conflict를 `docker rm`으로 지운 뒤 다시 실행하자 성공했다. (다른 방법: 왼쪽 호스트 포트만 비어 있는 번호로 바꾼다)
+- 확인 방법: `docker ps --filter "publish=8080"`에 web-conflict가 보이고, `curl http://localhost:8080`이 응답한다. 실험 후 `docker rm -f web-conflict`, `docker start web-8080`으로 원래대로 되돌렸다.
+- 배운 점: `com.docker.backend.exe`를 강제 종료하면 Docker 전체가 멈추므로, 포트를 비울 때는 그 포트를 쓰는 컨테이너만 멈춘다.
+
+```
+$ docker run -d --name web-conflict -p 8080:80 my-nginx:1.0
+docker: Error response from daemon: failed to set up container networking: ... Bind for 0.0.0.0:8080 failed: port is already allocated
+$ docker ps --filter "publish=8080"
+CONTAINER ID   IMAGE          COMMAND                  CREATED        STATUS          PORTS                                     NAMES
+e162753afa39   my-nginx:1.0   "/docker-entrypoint.…"   14 hours ago   Up 12 minutes   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   web-8080
+```
+
+![포트 충돌 재현](evidence/port-conflict.png)
+
+*▲ 8080을 이미 쓰는 중에 같은 포트로 실행 → `port is already allocated`. `docker ps --filter`로 사용 중인 컨테이너(web-8080)를 찾음*
+
+```
+PS C:\Users\shbm1> netstat -ano | findstr :8080
+  TCP    0.0.0.0:8080           0.0.0.0:0              LISTENING       20320
+  TCP    [::]:8080              [::]:0                 LISTENING       20320
+PS C:\Users\shbm1> tasklist /FI "PID eq 20320"
+이미지 이름                    PID 세션 이름              세션#  메모리 사용
+========================= ======== ================ =========== ============
+com.docker.backend.exe       20320 Console                    3    155,808 K
+```
+
+![윈도우에서 포트 사용 프로그램 확인](evidence/port-check-windows.png)
+
+*▲ PowerShell에서 8080을 LISTEN 하는 PID를 찾고, 그 PID가 Docker Desktop(com.docker.backend.exe)임을 확인*
+
+```
+$ docker stop web-8080
+web-8080
+$ docker ps --filter "publish=8080"
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+$ docker rm web-conflict
+web-conflict
+$ docker run -d --name web-conflict -p 8080:80 my-nginx:1.0
+097253b7038d3008695b067432658223ad701ed3d4d4d4f5f2ed170c7a78b2f0
+$ docker ps --filter "publish=8080"
+CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS         PORTS                                     NAMES
+097253b7038d   my-nginx:1.0   "/docker-entrypoint.…"   6 seconds ago   Up 6 seconds   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp   web-conflict
+$ curl http://localhost:8080
+<meta charset="utf-8">
+<h1>Hello from my custom nginx!</h1>
+<p>Dockerfile로 만든 나만의 nginx 이미지입니다.</p>
+<p>버전 1</p>
+```
+
+![포트 해제 후 재실행](evidence/port-release.png)
+
+*▲ 8080을 쓰던 web-8080을 멈추자 목록이 비고(포트 해제), 같은 명령으로 다시 실행하자 성공. curl로 접속 확인*
+
+**포트로 접속이 안 될 때 확인 순서**
+
+| 순서 | 확인할 것 | 명령 |
+|---|---|---|
+| 1 | 컨테이너가 실행 중인가 | `docker ps` (STATUS가 `Up`) |
+| 2 | 포트가 제대로 연결됐나 | `docker ps`의 PORTS에 `0.0.0.0:호스트포트->컨테이너포트` |
+| 3 | 컨테이너 안 서버가 그 포트를 듣나 | `docker exec 이름 netstat -tln` |
+| 4 | 서버에 오류가 없나 | `docker logs 이름` |
+| 5 | 다른 프로그램이 호스트 포트를 쓰나 | PowerShell `netstat -ano \| findstr :포트` → `tasklist /FI "PID eq 번호"` |
 
 ### 그 밖의 문제
 
