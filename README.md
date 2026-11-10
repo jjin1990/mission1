@@ -104,6 +104,10 @@ $ git log --oneline
 0839dd4 README 제목 추가
 ```
 
+![GitHub 저장소 화면](evidence/github-repo.png)
+
+*▲ GitHub 웹에서 확인한 저장소. Public, main 브랜치, 커밋 기록과 올라간 파일(app, evidence, Dockerfile, README.md 등)이 보인다. push가 실제로 GitHub에 반영된 증거*
+
 ### 구역 2 - 터미널 조작
 
 1. 현재 위치 확인
@@ -215,6 +219,10 @@ drwxr-xr-x 2 shbm1 shbm1 4096 Nov  8 20:49 .
 drwxr-xr-x 4 shbm1 shbm1 4096 Nov  8 20:22 ..
 ```
 
+![터미널 파일 조작](evidence/terminal-ops.png)
+
+*▲ 파일 만들기(touch) → 이름 바꾸기(mv) → 목록으로 확인 → 삭제(rm) → 사라졌는지 확인. 결과가 없는 명령은 바로 뒤 `ls -l`로 증거를 남겼다*
+
 ### 구역 3 - 권한 실습
 
 1. 실습 파일·폴더 만들고 바꾸기 전 권한 확인
@@ -262,6 +270,26 @@ $ pwd
 $ cd ..
 ```
 
+5. 권한 선택의 보안 근거
+
+- `600`/`700`에서 그룹과 다른 사람 칸을 `---`로 비운 이유: 같은 컴퓨터의 다른 계정이나 프로그램이 비밀 파일을 읽거나 개인 폴더 목록을 보지 못하게 하려고. 필요한 사람(나)에게 필요한 만큼만 주는 최소 권한 원칙이다.
+- 같은 원리를 실제로 쓰는 예: SSH 개인 키(`~/.ssh/id_ed25519`)는 `600`이고, 권한이 넓으면 SSH가 키 사용을 거부한다. (보너스 5 참고)
+
+6. 특수 권한 비트 (rwx 말고 더 있는 것)
+
+```
+$ ls -ld /tmp
+drwxrwxrwt 8 root root 160 Nov 10 09:31 /tmp
+```
+
+| 특수 비트 | 표시 | 뜻 |
+|---|---|---|
+| sticky bit | 다른 사람 칸 x 자리에 `t` | 모두가 쓸 수 있는 공용 폴더라도, 남이 만든 파일은 지울 수 없음 (예: `/tmp`) |
+| setuid | 주인 칸 x 자리에 `s` | 실행하면 파일 주인의 권한으로 실행됨 (예: `passwd`) |
+| setgid | 그룹 칸 x 자리에 `s` | 실행하면 파일 그룹의 권한으로 실행, 폴더에 붙으면 새 파일이 그 그룹을 물려받음 |
+
+> `/tmp`는 누구나 임시 파일을 쓰는 공용 사물함 방 같은 곳이라 `rwxrwxrwx`에 sticky bit(`t`)가 붙어 있다. 이번 실습 파일에는 특수 비트가 필요 없어서 쓰지 않았다.
+
 ### 구역 4 - Docker 점검 + 기본운영
 
 1. Docker 버전과 엔진 동작 확인
@@ -286,6 +314,11 @@ Server:
  OSType: linux
  Architecture: x86_64
  ```
+
+> 엔진(데몬) 상태 확인은 환경마다 다르다.
+> - Windows + WSL (이번 환경): Docker Desktop 창 왼쪽 아래 `Engine running`, 작업표시줄 고래 아이콘, Ubuntu에서 `docker info`의 Server 부분. Ubuntu 안에서 `systemctl`로 Docker를 켜는 방식이 아니라 Docker Desktop이 엔진을 실행한다. 컴퓨터를 켜면 Docker Desktop부터 실행해야 한다.
+> - Linux에 직접 설치한 경우: `systemctl status docker`로 상태 확인, `sudo systemctl start docker`로 시작.
+> - 엔진이 꺼져 있거나 연결이 안 되면 `docker info`의 Server 부분에 오류가 나온다. (트러블슈팅 문제 5 참고)
 
 2. 이미지 다운로드와 목록 확인
 
@@ -381,6 +414,10 @@ CONTAINER ID   IMAGE          COMMAND                  CREATED          STATUS  
 51eaf28ac447   nginx:alpine   "/docker-entrypoint.…"   17 minutes ago   Exited (0) 14 minutes ago             web1
 ```
 
+![hello-world 실행](evidence/hello-world.png)
+
+*▲ `docker run hello-world` 결과. "Hello from Docker!"와 Docker가 거친 4단계(클라이언트 → 데몬 → 이미지 → 컨테이너 → 출력)가 보인다*
+
 2. ubuntu 컨테이너 실행 후 내부에서 ls, echo (프롬프트가 root@컨테이너ID#로 바뀜)
 
 ```
@@ -446,6 +483,12 @@ CONTAINER ID   IMAGE     COMMAND   CREATED         STATUS          PORTS     NAM
 
 > 컨테이너는 안에서 도는 주인공 프로그램이 끝나면 같이 멈춘다. 그래서 실행 중인 컨테이너를 멈추지 않고 들어가 보려면 exec를 쓴다.
 
+6. 이미지와 컨테이너: 레이어와 불변성
+
+- 이미지는 여러 층(레이어)을 쌓아 만든 읽기 전용 틀이다. `docker pull` 때 `Pull complete`가 여러 줄 나온 것은 층마다 받았기 때문이다.
+- 컨테이너를 실행하면 이미지 위에 컨테이너만의 쓰기 층이 하나 더 얹힌다. 컨테이너 안에서 파일을 만들거나 바꿔도 그 쓰기 층에만 기록되고 이미지(틀)는 바뀌지 않는다(불변성). 그래서 같은 이미지로 컨테이너를 몇 번 만들어도 항상 같은 상태로 시작한다.
+- 컨테이너를 지우면 그 쓰기 층도 함께 사라진다. 지워져도 남겨야 하는 데이터는 볼륨에 둔다. (구역 7 참고)
+
 ### 구역 6 - 커스텀 이미지 + 포트 매핑
 
 1. 웹 페이지 재료 만들기 (`app/index.html`, 직접 작성)
@@ -473,9 +516,19 @@ drwxr-xr-x 5 shbm1 shbm1 4096 Nov  9 19:33 ..
 3. Dockerfile (베이스: `nginx:alpine`)
 
 ```
+# 빌드 컨텍스트: docker build 명령 끝의 .(저장소 맨 위 폴더)가 재료 폴더다. COPY는 이 폴더 안의 파일만 가져올 수 있다.
+# 캐시: 위에서부터 한 줄씩 층(레이어)을 만들고, 바뀌지 않은 줄은 이전 결과를 재사용(CACHED)한다. 그래서 자주 바뀌는 COPY는 아래, 잘 안 바뀌는 FROM은 위에 둔다.
+
+# 베이스: 웹 서버가 이미 들어 있고 작고 가벼운 nginx:alpine
 FROM nginx:alpine
+
+# 이미지에 만든 사람과 설명을 기록
 LABEL maintainer="jjin1990" description="Codyssey mission1 custom nginx"
+
+# 직접 쓴 웹 페이지를 nginx가 보여 주는 폴더로 복사 (공식 문서 경로)
 COPY app/ /usr/share/nginx/html/
+
+# nginx가 컨테이너 안에서 기다리는 포트(공식 문서로 확인한 80)를 문서로 표시
 EXPOSE 80
 ```
 
@@ -502,6 +555,12 @@ hello-world:latest   c567b231f656       25.9kB         9.49kB    U
 my-nginx:1.0         32c5cecd5178       93.7MB         26.4MB
 ...
 ```
+
+> 빌드 컨텍스트: `docker build -t my-nginx:1.0 .`의 마지막 `.`이 재료 폴더(저장소 맨 위)다. Dockerfile의 `COPY app/`은 이 폴더 안의 `app`만 가져올 수 있다.
+>
+> 캐시: Docker는 Dockerfile을 위에서부터 한 줄씩 층으로 만들고, 바뀌지 않은 줄은 이전 결과를 재사용한다. 보너스 1에서 Compose로 다시 빌드했을 때 `CACHED [1/2] FROM docker.io/library/nginx:alpine`이 나온 것이 그 증거다. 그래서 잘 안 바뀌는 `FROM`은 위에, 자주 바뀌는 `COPY`는 아래에 둔다.
+>
+> 태그 정책: `latest` 대신 `my-nginx:1.0`처럼 버전 태그를 붙였다. 내용을 바꿔 다시 빌드하면 `1.1`, `2.0`처럼 번호를 올려서, 어느 버전으로 실행했는지 README와 `docker images`에서 구별할 수 있게 한다.
 
 5. 포트 매핑으로 실행하고 접속 확인 (호스트 포트 8080, 8081 두 번)
 
@@ -532,7 +591,11 @@ $ curl http://localhost:8081
 
 ![localhost:8080 접속 화면](evidence/port-8080.png)
 
+*▲ 브라우저 주소창 `localhost:8080`으로 커스텀 이미지(my-nginx:1.0) 컨테이너에 접속한 화면. 직접 쓴 페이지가 보인다*
+
 ![localhost:8081 접속 화면](evidence/port-8081.png)
+
+*▲ 같은 이미지로 호스트 포트만 8081로 바꿔 실행한 두 번째 컨테이너. 같은 페이지가 나온다*
 
 7. 네트워크 네임스페이스: 두 컨테이너가 둘 다 80번을 써도 충돌하지 않는 이유
 
@@ -577,6 +640,8 @@ $ curl http://localhost:8082
 
 ![바인드 마운트 수정 전 (localhost:8082)](evidence/bind-before.png)
 
+*▲ 바인드 마운트(8082) 수정 전: 내 `app/index.html`의 "버전 1"이 그대로 보인다. 원래 nginx:alpine 이미지인데 내 페이지가 나오는 것이 연결 증거*
+
 2. 내 컴퓨터에서 `app/index.html`의 "버전 1"을 "버전 2 (바인드 마운트로 수정)"로 고치고 저장 → 재시작 없이 확인
 
 ```
@@ -593,6 +658,8 @@ $ curl http://localhost:8080
 ```
 
 ![바인드 마운트 수정 후 (localhost:8082)](evidence/bind-after.png)
+
+*▲ 내 컴퓨터에서 파일만 "버전 2"로 고치고 새로고침한 화면. 컨테이너 재시작 없이 바로 반영됐다*
 
 > 8082(바인드 마운트)는 파일을 고치자마자 버전 2로 바뀌었고, 8080(구역 6에서 COPY로 이미지에 넣은 것)은 버전 1 그대로다. 바인드는 내 폴더를 직접 연결하고, COPY는 빌드할 때 복사본을 이미지에 넣기 때문이다.
 
@@ -630,7 +697,30 @@ $ docker exec vol2 cat /data/note.txt
 hello volume
 ```
 
-5. 바인드 마운트와 볼륨 비교
+5. 볼륨이 실제로 저장되는 위치
+
+```
+$ docker volume inspect mydata
+[
+    {
+        "CreatedAt": "2026-11-09T12:15:01Z",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/mydata/_data",
+        "Name": "mydata",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+```
+
+![볼륨 위치와 sticky bit 확인](evidence/volume-sticky.png)
+
+*▲ 위: 볼륨 mydata의 실제 보관 위치(Mountpoint)는 Docker가 관리하는 `/var/lib/docker/volumes/mydata/_data`. 아래: `/tmp`의 sticky bit(`t`) 확인 (구역 3 참고)*
+
+> Docker Desktop(WSL)에서는 이 위치가 Docker 전용 가상 리눅스 안에 있어 Ubuntu에서 `ls`로 직접 볼 수 없다. 그래서 `docker volume inspect`로 위치를 확인하고, 데이터는 볼륨을 연결한 컨테이너 안에서 확인한다. 볼륨 폴더는 root가 관리하므로 직접 고치지 않고 컨테이너를 통해 다룬다.
+
+6. 바인드 마운트와 볼륨 비교
 
 | | 바인드 마운트 | 볼륨 |
 |---|---|---|
@@ -638,6 +728,7 @@ hello volume
 | 연결 방법 | `-v $(pwd)/app:/usr/share/nginx/html` | `-v mydata:/data` |
 | 확인한 것 | 파일 수정 → 재시작 없이 바로 반영 | 컨테이너 삭제 → 새 컨테이너에서도 데이터 유지 |
 | 쓰임 | 개발 중 코드를 바로 반영해 볼 때 | 컨테이너가 바뀌어도 지켜야 할 데이터 |
+| 운영 예 | 개발 중 소스 코드·설정 파일 연결 (수정 즉시 반영) | 데이터베이스 데이터·업로드 파일 보관, 정기적으로 백업 컨테이너로 볼륨 내용을 압축해 백업 |
 
 ## 5. 트러블슈팅
 
@@ -647,6 +738,7 @@ hello volume
 - 원인: Windows의 Docker Desktop은 WSL 2 위에서 리눅스 환경을 빌려 돌아가는데, 그 바탕이 준비되지 않은 상태였다.
 - 해결: 관리자 PowerShell에서 `wsl --install`로 WSL을 설치하고, `wsl --install -d Ubuntu`로 Ubuntu를 설치한 뒤, Docker Desktop(WSL 2 기반)을 설치하고 실행했다.
 - 배운 점: 프로그램이 안 될 때는 그 프로그램이 기대고 있는 바탕(WSL → Ubuntu → Docker)을 아래부터 차례로 확인해야 한다.
+- 확인 방법: `wsl -l -v`에서 Ubuntu의 VERSION이 2, `docker --version`과 `docker info`의 Server 정보가 출력되면 성공
 
 ### 문제 2. code . 실행 시 'wsl.localhost' 허용 경고
 
@@ -654,6 +746,7 @@ hello volume
 - 원인: VSCode에 WSL 확장이 없어서, 우분투 폴더를 WSL 연결이 아닌 Windows 네트워크 경로(`\\wsl.localhost`)로 열려고 했다.
 - 해결: 경고는 취소하고 VSCode에 WSL 확장(게시자 Microsoft 확인)을 설치했다. 다시 `code .`을 실행하자 VS Code Server가 설치·업데이트된 뒤, 왼쪽 아래에 `WSL: Ubuntu`가 표시된 상태로 열렸다.
 - 배운 점: 낯선 허용 창은 바로 누르지 말고 취소한 뒤 원인을 찾는다. 확장을 설치할 때는 게시자를 확인한다.
+- 확인 방법: VSCode 왼쪽 아래에 `WSL: Ubuntu`가 표시되고, 터미널 프롬프트가 Ubuntu(`$`)이면 성공
 
 ### 문제 3. git config --list 화면에서 Ctrl+Z를 눌러 Stopped
 
@@ -661,6 +754,7 @@ hello volume
 - 원인: 리눅스 터미널에서 `Ctrl+Z`는 "되돌리기"가 아니라 실행 중인 프로그램을 일시 정지하고 뒤로 보내는 키다. 보기 화면은 `q`로 끝내야 한다.
 - 해결: `jobs`로 멈춘 작업을 확인하고, `fg`로 다시 불러온 뒤 `q`로 종료했다. 다시 `jobs`를 쳐서 아무것도 나오지 않는 것을 확인했다.
 - 배운 점: Windows 단축키가 터미널에서는 다르게 동작할 수 있다. 보기 화면(`(END)`, `~` 표시)은 `q`로 나간다.
+- 확인 방법: 마지막 `jobs`에 아무것도 나오지 않으면 멈춰 있던 작업이 정리된 것
 
 ```
 $ git config --list
@@ -681,6 +775,7 @@ $
 - 원인: 터미널은 띄어쓰기로 명령, 옵션, 대상을 나눈다. ①은 `--global`이 `--`와 `global`로 쪼개져 전역 설정이 아닌 현재 폴더의 Git 저장소 설정으로 읽혔고, ②는 `ls/mnt/...` 전체가 하나의 명령 이름으로 읽혔다.
 - 해결: ①은 `--global`로 붙여서, ②는 `ls /mnt/...`로 띄어서 다시 입력했다.
 - 배운 점: 옵션은 붙여 쓰고(`--global`), 명령과 대상 사이는 띄어 쓴다. 오류가 나면 먼저 띄어쓰기부터 확인한다.
+- 확인 방법: `git config --global init.defaultBranch` 결과가 `main`, `ls /mnt/...`가 폴더 목록을 보여 주면 성공
 
 ```
 $ git config -- global init.defaultBranch main
@@ -699,6 +794,7 @@ main
 - 원인 ②: `ls -l /var/run/docker.sock` 결과 `srw-rw---- root docker`로 docker 그룹만 접근할 수 있는데, `groups`에 docker가 없었다.
 - 해결 ②: `sudo usermod -aG docker shbm1`로 docker 그룹에 추가하고(Ubuntu 비밀번호를 잊어 PowerShell에서 `wsl -u root` → `passwd shbm1`로 재설정), PowerShell에서 `wsl --shutdown` 후 VSCode를 다시 연결했다.
 - 배운 점: 오류 문구가 바뀌면 한 단계 나아간 것이다. `Permission denied`는 권한 문제이므로 대상의 권한과 내 그룹을 비교한다. docker 그룹은 root에 가까운 권한이지만, 개인 개발 환경이라 공식 문서 방법을 따랐다.
+- 확인 방법: `groups`에 `docker`가 보이고, `docker info`의 Server 아래 Containers·Images·Server Version이 출력되면 성공
 
 ```
 $ ls -l /var/run/docker.sock
@@ -778,17 +874,19 @@ $ curl http://localhost:8080
 
 ### 그 밖의 문제
 
-| 문제 | 원인 | 해결 |
-|---|---|---|
-| GitHub 저장소 이름이 `-`로 만들어짐 | 키보드 입력 언어가 영어가 아니었음 | Settings → Rename으로 mission1로 변경 |
-| 경로만 입력하자 `Is a directory` | 터미널은 맨 앞 단어를 명령으로 읽음 | 경로는 명령 뒤에 붙이는 대상으로 사용 |
-| `ls` 대신 `la`로 쳤는데 실행됨 | Ubuntu 기본 별명 `la='ls -A'` | `alias la`로 정체 확인 |
-| README 편집 중 Enter가 안 됨 | 한글 입력 조합이 꼬인 것으로 추정 | `Ctrl+Shift+P` → Developer: Reload Window |
-| PowerShell에서 Ubuntu 명령 실행 | 창(프롬프트)을 착각함 | 프롬프트 `PS` 확인 후 `wsl`로 Ubuntu 진입 |
-| user.email에 로그인 이메일을 먼저 넣음 | 보안을 위해 숨김 이메일을 쓰기로 함 | 커밋 전에 noreply 이메일로 다시 설정 후 확인 |
-| `docker attach unbuntu1` → `No such container` | 컨테이너 이름 오타 | `docker ps`로 이름 확인 후 `ubuntu1`로 다시 실행 |
-| Dockerfile 내용을 터미널에 입력 → `FROM: command not found` | Dockerfile 명령은 터미널 명령이 아님 | VSCode에서 Dockerfile 파일 안에 작성 |
-| `docker compose exec helper ...` → `service "helper" is not running` | `docker-compose.yml`을 저장하기 전에 `up`해서 helper가 없는 파일을 읽음 | 저장(Ctrl+S) 후 다시 `docker compose up -d` |
+| 문제 | 원인 | 해결 | 확인 방법 |
+|---|---|---|---|
+| GitHub 저장소 이름이 `-`로 만들어짐 | 키보드 입력 언어가 영어가 아니었음 | Settings → Rename으로 mission1로 변경 | 저장소 주소가 `.../mission1.git`으로 바뀜 |
+| 경로만 입력하자 `Is a directory` | 터미널은 맨 앞 단어를 명령으로 읽음 | 경로는 명령 뒤에 붙이는 대상으로 사용 | `cd 경로`, `ls 경로`가 정상 실행 |
+| `ls` 대신 `la`로 쳤는데 실행됨 | Ubuntu 기본 별명 `la='ls -A'` | `alias la`로 정체 확인 | `alias la` 결과 `alias la='ls -A'` |
+| README 편집 중 Enter가 안 됨 | 한글 입력 조합이 꼬인 것으로 추정 | `Ctrl+Shift+P` → Developer: Reload Window | 다시 열린 뒤 Enter로 줄이 바뀜 |
+| PowerShell에서 Ubuntu 명령 실행 | 창(프롬프트)을 착각함 | 프롬프트 `PS` 확인 후 `wsl`로 Ubuntu 진입 | 프롬프트가 `사용자@컴퓨터:~$`로 바뀜 |
+| user.email에 로그인 이메일을 먼저 넣음 | 보안을 위해 숨김 이메일을 쓰기로 함 | 커밋 전에 noreply 이메일로 다시 설정 | `git config --global user.email`이 noreply 주소 |
+| `docker attach unbuntu1` → `No such container` | 컨테이너 이름 오타 | `docker ps`로 이름 확인 후 `ubuntu1`로 다시 실행 | `docker attach ubuntu1`로 진입 성공 |
+| Dockerfile 내용을 터미널에 입력 → `FROM: command not found` | Dockerfile 명령은 터미널 명령이 아님 | VSCode에서 Dockerfile 파일 안에 작성 | `docker build`가 Dockerfile을 읽어 성공 |
+| `docker compose exec helper ...` → `service "helper" is not running` | `docker-compose.yml`을 저장하기 전에 `up`해서 helper가 없는 파일을 읽음 | 저장(Ctrl+S) 후 다시 `docker compose up -d` | `docker compose ps`에 helper와 web 두 줄 |
+| SSH push 때 `Received disconnect ... Bye Bye` → `Could not read from remote repository` | 열쇠 암호가 틀렸거나 입력이 늦어 연결이 끊김 | `git push`를 다시 하고 암호를 정확히 입력 | `To github.com:...  main -> main`, `git status`에 `up to date` |
+| `docker inspect -f '{{.NetworkSettings.IPAddress}}'` → `map has no entry for key "IPAddress"` | 최신 Docker(29)에서는 IP 정보 위치가 바뀜 | 컨테이너 안에서 `docker exec 이름 hostname -i`로 확인 | `172.17.0.2`처럼 IP가 출력됨 |
 
 ## 6. 검증 방법
 
@@ -820,6 +918,14 @@ curl http://localhost:8080
 ```
 
 > 주의: README의 `/home/shbm1/...` 경로는 내 컴퓨터 기준이다. 다른 컴퓨터에서는 `$(pwd)`나 저장소 기준 상대 경로(`app`, `evidence`)를 사용한다. 8080 포트가 이미 쓰이고 있으면 왼쪽 호스트 포트만 다른 번호로 바꾼다.
+
+| 환경 | 주의할 점 |
+|---|---|
+| Windows + WSL (이번 환경) | Docker Desktop을 먼저 켜고, Settings → WSL integration에서 Ubuntu를 켠다. 작업은 Ubuntu 홈(`~/...`)에서 한다. Windows 쪽(`/mnt/c/...`)은 리눅스 권한(chmod)이 제대로 보이지 않는다. |
+| Windows 탐색기에서 Ubuntu 폴더 열기 | 주소창에 `\\wsl.localhost\Ubuntu\home\사용자이름\codyssey\mission1` 입력 |
+| Windows PowerShell에서 실행 | `$(pwd)` 대신 `${PWD}`를 쓴다. 예: `docker run -v ${PWD}/app:/usr/share/nginx/html ...` |
+| Linux | `docker` 명령에 권한 오류가 나면 사용자를 `docker` 그룹에 추가하고 다시 로그인한다 (트러블슈팅 문제 5) |
+| macOS | Docker Desktop을 켜고 터미널에서 같은 명령을 그대로 쓴다. `$(pwd)` 그대로 사용 가능 |
 
 ## 8. 보너스 과제
 
@@ -1045,6 +1151,10 @@ origin  git@github.com:jjin1990/mission1.git (push)
 | 개인 키 보호 | 개인 키 권한 `600`(나만 읽기·쓰기), 공개 키는 `644` |
 
 > HTTPS는 로그인 정보나 토큰으로, SSH는 내 컴퓨터의 개인 키로 인증한다. 개인 키는 비밀번호처럼 어디에도 붙여넣지 않는다.
+
+![GitHub SSH 키 등록 화면](evidence/github-ssh-keys.png)
+
+*▲ GitHub Settings → SSH and GPG keys에 공개 키 `my-laptop-wsl`이 등록된 화면. 지문(`SHA256:qQJ4...`)이 터미널에서 만든 키와 같고, "Last used"가 표시되어 SSH로 실제 push에 쓰였음을 확인*
 
 ```
 $ git push
